@@ -1,0 +1,6 @@
+﻿{
+    "php.validate.enable":  true,
+    "php.validate.executablePath":  "D:\\Software\\PHP\\php.exe",
+    "php.debug.executablePath":  "D:\\Software\\PHP\\php.exe",
+    "intelephense.environment.phpExecutable":  "D:\\Software\\PHP\\php.exe"
+}

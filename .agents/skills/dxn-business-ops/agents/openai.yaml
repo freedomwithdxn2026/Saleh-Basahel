@@ -1,0 +1,3 @@
+display_name: DXN Business Ops
+short_description: Distributor workflows, sales ops, orders, commissions, and back-office logic for DXN-style direct selling.
+default_prompt: Help me design or improve a DXN business workflow with auditable sales, member, and operations logic.

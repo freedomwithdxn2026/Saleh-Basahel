@@ -1,0 +1,85 @@
+--- nginx site config ---
+
+
+    listen 80;
+    listen [::]:80;
+
+    server_name salehbasahel.com www.salehbasahel.com;
+
+    return 301 https://$host$request_uri;
+
+
+
+
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+
+    server_name salehbasahel.com www.salehbasahel.com;
+    root /var/www/salehbasahel/public;
+
+    index index.php index.html;
+
+    charset utf-8;
+    client_max_body_size 20m;
+    ssl_certificate /etc/letsencrypt/live/salehbasahel.com/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/salehbasahel.com/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    add_header X-Frame-Options "SAMEORIGIN";
+    add_header X-Content-Type-Options "nosniff";
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location = /favicon.ico {
+        access_log off;
+        log_not_found off;
+    }
+
+    location = /robots.txt {
+        access_log off;
+        log_not_found off;
+    }
+
+    location ~* \.(?:jpg|jpeg|png|gif|webp|svg|ico|css|js|woff|woff2)$ {
+        access_log off;
+        expires 30d;
+        add_header Cache-Control "public, max-age=2592000, immutable";
+        try_files $uri =404;
+    }
+
+
+--- active app path ---
+drwxr-xr-x 13 www-data www-data 4096 May 30 23:09 /var/www/salehbasahel
+drwxr-xr-x  4 www-data www-data 4096 Jun  2 17:07 /var/www/salehbasahel/public
+
+--- route file admin lines ---
+
+--- cached routes grep ---
+
+--- artisan route list admin ---
+
+   INFO  Route cache cleared successfully.  
+
+
+   INFO  Clearing cached bootstrap files.  
+
+  config ......................................................... 4.33ms DONE
+  cache ........................................................ 187.28ms DONE
+  compiled ....................................................... 1.25ms DONE
+  events ......................................................... 1.04ms DONE
+  routes ......................................................... 0.76ms DONE
+  views ......................................................... 25.85ms DONE
+
+
+--- laravel route file checksum ---
+2d9e142e1219177165740ebdc50fadabd2a6318a6041c663198c4e19bd179ab9  /var/www/salehbasahel/routes/web.php
+
+--- php fpm/nginx reload ---
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
