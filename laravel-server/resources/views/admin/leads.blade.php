@@ -1,4 +1,4 @@
-<x-admin.layout title="Leads Management" active="leads">
+﻿<x-admin.layout title="Leads Management" active="leads">
     @php
         $sortUrl = function (string $column) use ($sort, $direction) {
             $nextDirection = $sort === $column && $direction === 'asc' ? 'desc' : 'asc';
@@ -41,6 +41,7 @@
                 'meeting_scheduled' => 'Meeting Scheduled',
                 'follow_up_needed' => 'Follow Up Needed',
                 'converted' => 'Converted',
+                'registered' => 'Registered',
             ] as $pipelineKey => $pipelineLabel)
                 <a class="{{ $pipeline === $pipelineKey ? 'active' : '' }}" href="{{ route('admin.leads.index', array_filter(['pipeline' => $pipelineKey])) }}">
                     {{ $pipelineLabel }}
@@ -180,3 +181,5 @@
         }, 30000);
     </script>
 </x-admin.layout>
+
+

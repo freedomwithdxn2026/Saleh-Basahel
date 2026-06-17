@@ -7,10 +7,9 @@ return [
     | Third Party Services
     |--------------------------------------------------------------------------
     |
-    | This file is for storing the credentials for third party services such
-    | as Mailgun, Postmark, AWS and more. This file provides the de facto
-    | location for this type of information, allowing packages to have
-    | a conventional file to locate the various service credentials.
+    | Store only active production integrations here. AI provider credentials are
+    | intentionally modular so OpenRouter can be enabled later without changing
+    | the lead collection or WhatsApp workflow code.
     |
     */
 
@@ -35,12 +34,15 @@ return [
         ],
     ],
 
-    'google_sheets' => [
-        'webhook_url' => env(
-            'GOOGLE_SHEETS_WEBHOOK_URL',
-            env('OPENCLAW_GOOGLE_SHEETS_WEBHOOK_URL', env('LEADS_GOOGLE_SHEETS_WEBHOOK_URL'))
-        ),
-        'webhook_secret' => env('GOOGLE_SHEETS_WEBHOOK_SECRET', 'CHANGE_THIS_SECRET'),
+    'ai' => [
+        'provider' => env('AI_PROVIDER', 'openrouter'),
+        'openrouter' => [
+            'api_key' => env('OPENROUTER_API_KEY'),
+            'base_url' => env('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1'),
+            'model' => env('OPENROUTER_MODEL', 'openrouter/auto'),
+            'timeout' => (int) env('OPENROUTER_TIMEOUT', 30),
+            'max_retries' => (int) env('OPENROUTER_MAX_RETRIES', 2),
+        ],
     ],
 
     'leads' => [
@@ -60,6 +62,8 @@ return [
         'home' => env('OPENCLAW_HOME', '/home/openclaw'),
         'path' => env('OPENCLAW_PATH', '/home/openclaw/.local/bin:/usr/local/bin:/usr/bin:/bin'),
         'admin_whatsapp' => env('ADMIN_WHATSAPP_NUMBER', '+971555574958'),
+        'timeout' => (int) env('OPENCLAW_SEND_TIMEOUT', 45),
+        'max_attempts' => (int) env('OPENCLAW_SEND_MAX_ATTEMPTS', 2),
     ],
 
 ];

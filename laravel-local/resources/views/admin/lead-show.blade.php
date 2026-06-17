@@ -1,4 +1,4 @@
-<x-admin.layout title="Manage Lead" active="leads">
+﻿<x-admin.layout title="Manage Lead" active="leads">
     <div class="lead-detail-head">
         <a class="text-link" href="{{ route('admin.leads.index') }}">&larr; Back to leads</a>
         <div class="action-buttons">
@@ -29,7 +29,7 @@
                 <div class="field"><label for="lead_subcategory">Subcategory</label><input id="lead_subcategory" name="lead_subcategory" value="{{ old('lead_subcategory', $lead->lead_subcategory) }}"></div>
                 <div class="field"><label for="lead_detail_option">Detailed option</label><input id="lead_detail_option" name="lead_detail_option" value="{{ old('lead_detail_option', $lead->lead_detail_option) }}"></div>
                 <div class="field"><label for="preferred_time_interest">Preferred time / interest</label><input id="preferred_time_interest" name="preferred_time_interest" value="{{ old('preferred_time_interest', $lead->preferred_time_interest) }}"></div>
-                <div class="field"><label for="status">Lead status</label><select id="status" name="status">@foreach (['new', 'qualified', 'follow_up_needed', 'meeting_scheduled', 'converted', 'closed'] as $option)<option value="{{ $option }}" @selected(old('status', $lead->status) === $option)>{{ str($option)->replace('_', ' ')->title() }}</option>@endforeach</select></div>
+                <div class="field"><label for="status">Lead status</label><select id="status" name="status">@foreach (['new', 'qualified', 'follow_up_needed', 'meeting_scheduled', 'registered', 'converted', 'closed'] as $option)<option value="{{ $option }}" @selected(old('status', $lead->status) === $option)>{{ str($option)->replace('_', ' ')->title() }}</option>@endforeach</select></div>
                 <div class="field"><label for="meeting_status">Meeting status</label><select id="meeting_status" name="meeting_status">@foreach (['not_scheduled', 'scheduled', 'completed', 'cancelled'] as $option)<option value="{{ $option }}" @selected(old('meeting_status', $lead->meeting_status) === $option)>{{ str($option)->replace('_', ' ')->title() }}</option>@endforeach</select></div>
                 <div class="field"><label for="meeting_scheduled_at">Meeting date and time</label><input id="meeting_scheduled_at" type="datetime-local" name="meeting_scheduled_at" value="{{ old('meeting_scheduled_at', $lead->meeting_scheduled_at?->format('Y-m-d\TH:i')) }}"></div>
                 <label class="check-field"><input type="checkbox" name="consent" value="1" @checked(old('consent', $lead->consent))> Consent received for private follow-up</label>
@@ -125,3 +125,4 @@
         </section>
     @endif
 </x-admin.layout>
+

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """Append a DXN WhatsApp lead or admin alert as JSONL.
 
 Usage:
@@ -89,41 +89,6 @@ def sync_laravel_leads(payload: dict) -> bool:
     return False
 
 
-def sync_google_sheet(payload: dict) -> None:
-    webhook_url = os.environ.get("OPENCLAW_GOOGLE_SHEETS_WEBHOOK_URL")
-    if not webhook_url:
-        return
-
-    sheet_payload = {
-        "secret": os.environ.get("OPENCLAW_GOOGLE_SHEETS_WEBHOOK_SECRET"),
-        "date": payload.get("created_at"),
-        "name": payload.get("name"),
-        "whatsapp_number": payload.get("phone")
-        or payload.get("whatsapp_number")
-        or payload.get("number")
-        or payload.get("from"),
-        "email": payload.get("email"),
-        "country": payload.get("country") or payload.get("city"),
-        "interest_in": payload.get("interest") or payload.get("interest_in"),
-        "meeting_date_time": payload.get("meeting_date_time") or payload.get("meeting_time"),
-        "status": payload.get("meeting_status") or payload.get("stage") or "New",
-        "notes": payload.get("notes") or payload.get("message"),
-    }
-
-    request = Request(
-        webhook_url,
-        data=json.dumps(sheet_payload, ensure_ascii=False).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-
-    try:
-        with urlopen(request, timeout=8) as response:
-            response.read()
-    except URLError as exc:
-        print(f"Google Sheet sync failed: {exc}", file=sys.stderr)
-
-
 def main() -> int:
     if len(sys.argv) != 3 or sys.argv[1] not in TARGETS:
         print("Usage: save_lead.py lead|alert '<json-object>'", file=sys.stderr)
@@ -150,8 +115,7 @@ def main() -> int:
         handle.write(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n")
 
     if kind == "lead":
-        if not sync_laravel_leads(payload):
-            sync_google_sheet(payload)
+        sync_laravel_leads(payload)
 
     print(str(TARGETS[kind]))
     return 0
@@ -159,3 +123,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

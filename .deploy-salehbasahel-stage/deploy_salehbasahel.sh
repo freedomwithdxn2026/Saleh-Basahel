@@ -23,7 +23,6 @@ install -m 0644 "$STAGE_DIR/Admin/ProfileController.php" "$APP_DIR/app/Http/Cont
 install -d "$APP_DIR/app/Http/Middleware"
 install -m 0644 "$STAGE_DIR/AdminAuthenticated.php" "$APP_DIR/app/Http/Middleware/AdminAuthenticated.php"
 install -d "$APP_DIR/app/Services"
-install -m 0644 "$STAGE_DIR/GoogleSheetLeadSync.php" "$APP_DIR/app/Services/GoogleSheetLeadSync.php"
 install -m 0644 "$STAGE_DIR/OpenClawLeadImporter.php" "$APP_DIR/app/Services/OpenClawLeadImporter.php"
 install -m 0644 "$STAGE_DIR/LeadScoringService.php" "$APP_DIR/app/Services/LeadScoringService.php"
 install -m 0644 "$STAGE_DIR/OpenClawMessenger.php" "$APP_DIR/app/Services/OpenClawMessenger.php"
@@ -32,6 +31,10 @@ install -m 0644 "$STAGE_DIR/LeadWelcomeService.php" "$APP_DIR/app/Services/LeadW
 install -m 0644 "$STAGE_DIR/LeadAutomationService.php" "$APP_DIR/app/Services/LeadAutomationService.php"
 install -m 0644 "$STAGE_DIR/LeadCommunicationService.php" "$APP_DIR/app/Services/LeadCommunicationService.php"
 install -m 0644 "$STAGE_DIR/LeadCommunicationBackfillService.php" "$APP_DIR/app/Services/LeadCommunicationBackfillService.php"
+install -d "$APP_DIR/app/Services/Ai"
+install -m 0644 "$STAGE_DIR/Ai/AiProvider.php" "$APP_DIR/app/Services/Ai/AiProvider.php"
+install -m 0644 "$STAGE_DIR/Ai/OpenRouterProvider.php" "$APP_DIR/app/Services/Ai/OpenRouterProvider.php"
+install -m 0644 "$STAGE_DIR/Ai/AiProviderManager.php" "$APP_DIR/app/Services/Ai/AiProviderManager.php"
 install -o root -g root -m 0755 "$STAGE_DIR/openclaw_message_send.sh" /usr/local/bin/saleh-openclaw-send
 printf 'www-data ALL=(openclaw) NOPASSWD: /usr/local/bin/saleh-openclaw-send\n' > /etc/sudoers.d/saleh-openclaw-send
 chmod 0440 /etc/sudoers.d/saleh-openclaw-send
@@ -63,6 +66,7 @@ install -m 0644 "$STAGE_DIR/web.php" "$APP_DIR/routes/web.php"
 install -m 0644 "$STAGE_DIR/console.php" "$APP_DIR/routes/console.php"
 rm -f "$APP_DIR/resources/views/landing.blade.php"
 install -m 0644 "$STAGE_DIR/saleh-basahel-landing-page.blade.php" "$APP_DIR/resources/views/saleh-basahel-landing-page.blade.php"
+install -m 0644 "$STAGE_DIR/privacy-policy.blade.php" "$APP_DIR/resources/views/privacy-policy.blade.php"
 install -d "$APP_DIR/resources/views/components"
 install -m 0644 "$STAGE_DIR/components/brand-logo.blade.php" "$APP_DIR/resources/views/components/brand-logo.blade.php"
 install -m 0644 "$STAGE_DIR/components/header.blade.php" "$APP_DIR/resources/views/components/header.blade.php"
@@ -80,6 +84,13 @@ install -m 0644 "$STAGE_DIR/lang/en/site.php" "$APP_DIR/lang/en/site.php"
 install -m 0644 "$STAGE_DIR/lang/ar/site.php" "$APP_DIR/lang/ar/site.php"
 install -m 0644 "$STAGE_DIR/public/favicon.svg" "$APP_DIR/public/favicon.svg"
 install -m 0644 "$STAGE_DIR/public/favcon.png" "$APP_DIR/public/favcon.png"
+install -d "$APP_DIR/public/css" "$APP_DIR/public/js"
+if [[ -d "$STAGE_DIR/public/css" ]]; then
+    find "$STAGE_DIR/public/css" -maxdepth 1 -type f -exec install -m 0644 {} "$APP_DIR/public/css/" \;
+fi
+if [[ -d "$STAGE_DIR/public/js" ]]; then
+    find "$STAGE_DIR/public/js" -maxdepth 1 -type f -exec install -m 0644 {} "$APP_DIR/public/js/" \;
+fi
 install -d "$APP_DIR/public/images"
 install -m 0644 "$STAGE_DIR/public/images/hero-overview.svg" "$APP_DIR/public/images/hero-overview.svg"
 install -m 0644 "$STAGE_DIR/public/images/hero-aside-image.png" "$APP_DIR/public/images/hero-aside-image.png"
@@ -148,6 +159,20 @@ updates = {
     "CALENDLY_URL": "https://calendly.com/salehbasahel/saleh-basahel",
     "LEAD_WEBHOOK_TOKEN": lead_token,
     "CALENDLY_WEBHOOK_TOKEN": calendly_token,
+    "AI_PROVIDER": "openrouter",
+    "OPENROUTER_BASE_URL": "https://openrouter.ai/api/v1",
+    "OPENROUTER_MODEL": "openrouter/auto",
+    "OPENROUTER_TIMEOUT": "30",
+    "OPENROUTER_MAX_RETRIES": "2",
+}
+
+remove_keys = {
+    "GOOGLE_SHEETS_WEBHOOK_URL",
+    "GOOGLE_SHEETS_WEBHOOK_SECRET",
+    "OPENCLAW_GOOGLE_SHEETS_WEBHOOK_URL",
+    "OPENCLAW_GOOGLE_SHEETS_WEBHOOK_SECRET",
+    "LEADS_GOOGLE_SHEETS_WEBHOOK_URL",
+    "LEADS_GOOGLE_SHEETS_WEBHOOK_SECRET",
 }
 
 lines = path.read_text().splitlines()
@@ -156,6 +181,8 @@ out = []
 
 for line in lines:
     key = line.split("=", 1)[0] if "=" in line else None
+    if key in remove_keys:
+        continue
     if key in updates:
         value = updates[key]
         if any(ch in value for ch in " #\"'"):
@@ -226,3 +253,4 @@ systemctl reload nginx
 
 ufw allow 'Nginx Full'
 ufw --force reload
+

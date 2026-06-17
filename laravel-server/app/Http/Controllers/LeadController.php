@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Lead;
-use App\Services\GoogleSheetLeadSync;
 use App\Services\LeadCommunicationService;
 use App\Services\LeadScoringService;
 use App\Services\LeadWelcomeService;
@@ -61,7 +60,6 @@ class LeadController extends Controller
             ],
             $lead->created_at,
         );
-        app(GoogleSheetLeadSync::class)->sync($lead);
         $welcome->enroll($lead);
 
         if ($request->expectsJson()) {
@@ -226,7 +224,6 @@ class LeadController extends Controller
             );
         }
         $communications->ingestConversation($lead, Arr::get($validated, 'conversation_history'), $source);
-        app(GoogleSheetLeadSync::class)->sync($lead);
         $welcome->enroll($lead);
 
         return response()->json([
@@ -265,3 +262,4 @@ class LeadController extends Controller
         return $conversation ? (string) $conversation : null;
     }
 }
+

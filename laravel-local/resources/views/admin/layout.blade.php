@@ -47,7 +47,9 @@
         .topbar { display: flex; justify-content: space-between; align-items: center; gap: 18px; margin-bottom: 28px; }
         .topbar h1 { margin: 0; font-size: clamp(24px, 2.4vw, 34px); font-weight: 600; line-height: 1.2; }
         .main h2 { font-size: clamp(20px, 1.8vw, 28px); font-weight: 600; line-height: 1.25; }
+        .topbar-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
         .visit { background: #1E9447; color: #fff; padding: 13px 18px; border-radius: 999px; font-weight: 800; box-shadow: 0 12px 24px rgba(30,148,71,.18); }
+        .registered-shortcut { background: #eaf8ef; color: #16763A; border: 1px solid #cfeadd; box-shadow: none; }
         .card { background: #fff; border: 1px solid #e3ebe5; border-radius: 22px; box-shadow: 0 18px 44px rgba(7,24,15,.07); }
         .pad { padding: 24px; }
         .grid { display: grid; gap: 18px; }
@@ -69,6 +71,7 @@
         .tabs a.active { background: #1E9447; color: #fff; border-color: #1E9447; }
         .image-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         .preview { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; border-radius: 16px; border: 1px solid #e2e8e4; background: #f7faf8; }
+        .video-preview { background: #07180f; }
         .searchbar { display: flex; gap: 12px; margin-bottom: 18px; }
         .searchbar input { max-width: 420px; }
         .block { display: block; }
@@ -257,6 +260,7 @@
             .main { width: auto; max-width: 100%; min-width: 0; padding: 22px 16px; overflow-x: hidden; }
             .stats, .image-grid { grid-template-columns: 1fr; }
             .topbar { align-items: flex-start; flex-direction: column; }
+            .topbar-actions { justify-content: flex-start; }
             .lead-header { flex-direction: column; }
             .detail-grid, .form-grid { grid-template-columns: 1fr; }
             .communication-head { flex-direction: column; }
@@ -354,7 +358,12 @@
                     <p class="muted" style="margin: 0 0 8px;">Admin Panel</p>
                     <h1>{{ $title ?? 'Dashboard' }}</h1>
                 </div>
-                <a class="visit" href="{{ url('/en') }}" target="_blank">View Website</a>
+                <div class="topbar-actions">
+                    @if (($title ?? '') === 'Leads Management')
+                        <a class="visit registered-shortcut" href="{{ route('admin.leads.index', ['pipeline' => 'registered']) }}">Registered</a>
+                    @endif
+                    <a class="visit" href="{{ url('/en') }}" target="_blank">View Website</a>
+                </div>
             </div>
 
             @if (session('status'))
@@ -396,3 +405,4 @@
     </script>
 </body>
 </html>
+

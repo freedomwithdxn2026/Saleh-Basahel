@@ -62,6 +62,7 @@ class LeadController extends Controller
                     'meeting_scheduled' => $query->where('meeting_status', 'scheduled'),
                     'follow_up_needed' => $query->whereNotNull('next_follow_up_at'),
                     'converted' => $query->whereNotNull('converted_at'),
+                    'registered' => $this->applyRegisteredScope($query),
                     default => null,
                 };
             }
@@ -209,6 +210,33 @@ class LeadController extends Controller
             'meeting_scheduled' => Lead::where('meeting_status', 'scheduled')->count(),
             'follow_up_needed' => Lead::whereNotNull('next_follow_up_at')->count(),
             'converted' => Lead::whereNotNull('converted_at')->count(),
+            'registered' => tap(Lead::query(), fn ($query) => $this->applyRegisteredScope($query))->count(),
         ];
     }
+
+    private function applyRegisteredScope($query): void
+    {
+        $query->where(function ($registeredQuery): void {
+            $registeredQuery
+                ->where('status', 'registered')
+                ->orWhere('status', 'converted')
+                ->orWhereNotNull('converted_at')
+                ->orWhere(function ($completedQuery): void {
+                    $completedQuery
+                        ->where('meeting_status', 'completed')
+                        ->whereIn('lead_temperature', ['warm', 'hot'])
+                        ->where(function ($interestQuery): void {
+                            foreach (['health', 'wellness', 'income', 'business', 'opportunity', 'start'] as $keyword) {
+                                $interestQuery
+                                    ->orWhere('interest', 'like', "%{$keyword}%")
+                                    ->orWhere('lead_category', 'like', "%{$keyword}%")
+                                    ->orWhere('lead_subcategory', 'like', "%{$keyword}%")
+                                    ->orWhere('lead_detail_option', 'like', "%{$keyword}%");
+                            }
+                        });
+                });
+        });
+    }
 }
+
+

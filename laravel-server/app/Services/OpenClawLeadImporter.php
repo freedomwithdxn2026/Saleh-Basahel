@@ -172,10 +172,6 @@ class OpenClawLeadImporter
                 $lead->save();
             }
 
-            if ($wasRecentlyCreated) {
-                app(GoogleSheetLeadSync::class)->sync($lead);
-            }
-
             return $wasRecentlyCreated;
         } catch (\Throwable $exception) {
             Log::warning('OpenClaw lead import failed.', [
@@ -232,3 +228,4 @@ class OpenClawLeadImporter
         };
     }
 }
+

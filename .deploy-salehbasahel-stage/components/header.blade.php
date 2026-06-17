@@ -64,11 +64,11 @@
     }"
     class="fixed inset-x-0 top-0 z-50 border-b border-[#E5E5E5] bg-white shadow-sm"
 >
-    <div class="mx-auto grid h-[74px] w-full max-w-7xl grid-cols-[auto_1fr_auto] items-center gap-4 px-5 sm:h-[86px] sm:px-8 xl:px-10">
-        <x-brand-logo />
+    <div class="mx-auto flex h-[74px] w-full max-w-7xl items-center justify-between gap-3 px-5 sm:h-[86px] sm:px-8 xl:gap-4 xl:px-10">
+        <div class="shrink-0"><x-brand-logo /></div>
 
-        <nav class="hidden min-w-0 justify-center xl:flex" aria-label="{{ __('site.nav.aria') }}">
-            <div class="flex min-w-0 items-center gap-5 2xl:gap-7 {{ $isRtl ? 'flex-row-reverse' : '' }}">
+        <nav class="hidden min-w-0 flex-1 justify-end xl:flex {{ $isRtl ? 'pl-5' : 'pr-5' }}" aria-label="{{ __('site.nav.aria') }}">
+            <div class="flex min-w-0 items-center gap-4 2xl:gap-5 {{ $isRtl ? 'flex-row-reverse' : '' }}">
                 @foreach ($sections as $id => $label)
                     <a
                         href="{{ url('/' . $locale . '/' . $id) }}"
@@ -80,12 +80,12 @@
             </div>
         </nav>
 
-        <div class="flex items-center justify-end gap-2 sm:gap-3">
+        <div class="ml-auto flex shrink-0 items-center justify-end gap-2 sm:gap-4">
             <a href="{{ url('/' . $locale . '/contact') }}" @click.prevent="scrollToSection('contact')" class="hidden min-h-11 whitespace-nowrap rounded-full bg-gradient-to-r from-[#1E9447] to-[#16763A] px-6 text-[15px] font-extrabold text-white shadow-lg shadow-[#1E9447]/25 transition duration-300 hover:scale-105 hover:from-[#16763A] hover:to-[#1E9447] hover:shadow-xl hover:shadow-[#1E9447]/30 focus:outline-none focus:ring-4 focus:ring-[#1E9447]/25 sm:inline-flex sm:items-center">
                 {{ __('site.cta.start') }}
             </a>
 
-            <div class="flex rounded-full border border-[#E5E5E5] bg-white p-1 shadow-sm {{ $isRtl ? 'flex-row-reverse' : '' }}" aria-label="{{ __('site.lang.label') }}">
+            <div class="flex shrink-0 rounded-full border border-[#E5E5E5] bg-white p-1 shadow-sm {{ $isRtl ? 'flex-row-reverse' : '' }}" aria-label="{{ __('site.lang.label') }}">
                 <a href="{{ url('/en') }}" class="whitespace-nowrap rounded-full px-3 py-2 text-sm font-black transition {{ $locale === 'en' ? 'bg-[#1E9447] text-white shadow-sm' : 'bg-white text-[#111111] hover:text-[#1E9447]' }}">EN</a>
                 <a href="{{ url('/ar') }}" class="whitespace-nowrap rounded-full px-3 py-2 text-sm font-black transition {{ $locale === 'ar' ? 'bg-[#1E9447] text-white shadow-sm' : 'bg-white text-[#111111] hover:text-[#1E9447]' }}">AR</a>
             </div>

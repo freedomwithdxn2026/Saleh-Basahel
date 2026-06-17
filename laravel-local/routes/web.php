@@ -33,6 +33,15 @@ Route::prefix('admin')->name('admin.')->middleware(AdminAuthenticated::class)->g
 Route::pattern('locale', 'en|ar');
 Route::pattern('section', 'video-overview|how-it-works|success-stories|wellness-lifestyle|business-opportunity|about-saleh|faq|contact');
 
+Route::get('/{locale}/privacy-policy', function (string $locale) {
+    App::setLocale($locale);
+    session(['locale' => $locale]);
+
+    return view('privacy-policy', [
+        'locale' => $locale,
+        'isRtl' => $locale === 'ar',
+    ]);
+})->name('privacy-policy');
 Route::get('/{locale}/{section?}', function (string $locale, ?string $section = null) {
     App::setLocale($locale);
     session(['locale' => $locale]);

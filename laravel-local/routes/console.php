@@ -1,12 +1,7 @@
 <?php
 
-use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
-
-Artisan::command('inspire', function () {
-    $this->comment(Inspiring::quote());
-})->purpose('Display an inspiring quote');
 
 Artisan::command('leads:run-automation', function () {
     $result = app(\App\Services\LeadAutomationService::class)->run();
@@ -19,3 +14,4 @@ Artisan::command('leads:backfill-communications', function () {
 })->purpose('Reconstruct known historical lead communications from existing CRM data');
 
 Schedule::command('leads:run-automation')->everyFiveMinutes()->withoutOverlapping();
+

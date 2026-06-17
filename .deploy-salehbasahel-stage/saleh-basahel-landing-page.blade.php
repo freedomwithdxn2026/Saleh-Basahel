@@ -5,7 +5,51 @@
     $nav = __('site.nav');
     $siteContent = app(\App\Support\SiteContent::class);
     $copy = fn (string $key): string => $siteContent->text($locale, $key);
+    $contentArray = function (string $key) use ($locale, $siteContent): array {
+        $source = __($key, [], $locale);
+
+        if (! is_array($source)) {
+            return [];
+        }
+
+        $walk = function (array $items, string $prefix) use (&$walk, $locale, $siteContent): array {
+            foreach ($items as $itemKey => $value) {
+                $childKey = $prefix . '.' . $itemKey;
+                $items[$itemKey] = is_array($value)
+                    ? $walk($value, $childKey)
+                    : $siteContent->text($locale, $childKey);
+            }
+
+            return $items;
+        };
+
+        return $walk($source, $key);
+    };
     $siteImage = fn (string $key, string $fallback): string => $siteContent->image($key, $fallback);
+    $assetWithVersion = function (string $path): string {
+        if (preg_match('/^https?:\/\//i', $path)) {
+            return $path;
+        }
+
+        $cleanPath = ltrim($path, '/');
+        $url = asset($cleanPath);
+        $filePath = public_path($cleanPath);
+
+        return file_exists($filePath) ? $url . '?v=' . filemtime($filePath) : $url;
+    };
+
+    $heroDefaultImage = '/images/hero-image.jpg';
+    $heroImage = $siteImage('hero_image', $heroDefaultImage);
+    $heroImageSrc = $assetWithVersion($heroImage);
+    $heroDefaultSrcset = asset('images/hero-image.jpg') . ' 1280w';
+    $heroSrcset = $heroImage === $heroDefaultImage ? $heroDefaultSrcset : $heroImageSrc;
+    $heroSizes = '(min-width: 1280px) 44vw, (min-width: 1024px) 48vw, 92vw';
+    $overviewVideo = $siteImage('overview_video', '/videos/free-overview.mp4');
+    $overviewVideoSrc = $assetWithVersion($overviewVideo);
+    $wellnessImage = $siteImage('wellness_image', '/images/wellness-lifestyle.webp');
+    $wellnessImageSrc = $assetWithVersion($wellnessImage);
+    $profileImage = $siteImage('profile_image', '/images/profile.jpg');
+    $profileImageSrc = $assetWithVersion($profileImage);
 @endphp
 
 <!doctype html>
@@ -21,42 +65,18 @@
     <link rel="shortcut icon" type="image/png" href="{{ asset('favcon.png') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ asset('css/saleh-landing.css') }}">
     <link
         rel="preload"
         as="image"
-        href="{{ asset(ltrim($siteImage('hero_image', '/images/hero-aside-image-1280.webp'), '/')) }}"
-        imagesrcset="{{ asset(ltrim($siteImage('hero_image', '/images/hero-aside-image-1280.webp'), '/')) }}"
-        imagesizes="(min-width: 1024px) 44vw, 100vw"
+        href="{{ $heroImageSrc }}"
+        imagesrcset="{{ $heroSrcset }}"
+        imagesizes="{{ $heroSizes }}"
         fetchpriority="high"
     >
     <title>{{ $copy('site.meta.title') }}</title>
-    <script>
-        tailwind = {
-            config: {
-                theme: {
-                    extend: {
-                        colors: {
-                            brand: {
-                                DEFAULT: '#1E9447',
-                                dark: '#16763A',
-                                light: '#EAF8EF',
-                            },
-                            ink: '#111111',
-                            muted: '#666666',
-                            line: '#E5E5E5',
-                        },
-                        fontFamily: {
-                            sans: ['Montserrat', 'ui-sans-serif', 'system-ui', 'Arial', 'sans-serif'],
-                            arabic: ['Montserrat', 'Tahoma', 'Arial', 'sans-serif'],
-                        },
-                    },
-                },
-            },
-        };
-    </script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script defer src="{{ asset('js/alpine.min.js') }}"></script>
     <style>
         html {
             scroll-behavior: smooth;
@@ -157,6 +177,23 @@
             overflow-x: clip;
         }
 
+        main > section:not(#hero) {
+            content-visibility: auto;
+            contain-intrinsic-size: 900px;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
         @keyframes growth-line-draw {
             0% {
                 stroke-dashoffset: 420;
@@ -214,6 +251,10 @@
         }
 
         @media (prefers-reduced-motion: reduce) {
+            html {
+                scroll-behavior: auto;
+            }
+
             .support-box-shake {
                 animation: none;
             }
@@ -247,7 +288,7 @@
                         {{ $copy('site.hero.subtitle') }}
                     </p>
                     <div class="mt-7 grid max-w-xl grid-cols-1 gap-4 sm:grid-cols-2">
-                        @foreach (__('site.hero.features') as $feature)
+                        @foreach ($contentArray('site.hero.features') as $feature)
                             <div class="flex min-h-14 items-center justify-center rounded-lg border border-[#D9E9DE] bg-white/70 px-5 text-center text-base font-normal text-[#111111] shadow-sm">
                                 {{ $copy('site.hero.features.' . $loop->index) }}
                             </div>
@@ -270,13 +311,13 @@
                             <picture class="absolute inset-0 block h-full w-full">
                                 <source
                                     type="image/webp"
-                                    srcset="{{ asset(ltrim($siteImage('hero_image', '/images/hero-aside-image-1280.webp'), '/')) }}"
-                                    sizes="(min-width: 1024px) 44vw, 100vw"
+                                    srcset="{{ $heroSrcset }}"
+                                    sizes="{{ $heroSizes }}"
                                 >
                                 <img
-                                    src="{{ asset(ltrim($siteImage('hero_image', '/images/hero-aside-image-1280.webp'), '/')) }}"
-                                    srcset="{{ asset(ltrim($siteImage('hero_image', '/images/hero-aside-image-1280.webp'), '/')) }}"
-                                    sizes="(min-width: 1024px) 44vw, 100vw"
+                                    src="{{ $heroImageSrc }}"
+                                    srcset="{{ $heroSrcset }}"
+                                    sizes="{{ $heroSizes }}"
                                     width="1731"
                                     height="909"
                                     alt="{{ $copy('site.hero.image_alt') }}"
@@ -296,7 +337,7 @@
         <section id="video-overview" class="scroll-mt-28 bg-[#FBFAF5] px-5 py-20 sm:px-8 lg:px-16">
             <div class="mx-auto w-full max-w-7xl">
                 <div class="mx-auto max-w-4xl text-center">
-                    <p class="mb-4 text-sm font-semibold uppercase tracking-[0.16em] text-[#16763A]">{{ __('site.video.eyebrow') }}</p>
+                    <p class="mb-4 text-sm font-semibold uppercase tracking-[0.16em] text-[#16763A]">{{ $copy('site.video.eyebrow') }}</p>
                     <h2 class="text-3xl font-bold tracking-normal text-[#111111] sm:text-4xl">{{ $copy('site.video.title') }}</h2>
                     <p class="mx-auto mt-5 max-w-3xl text-lg leading-8 text-[#111111]">{{ $copy('site.video.description') }}</p>
                 </div>
@@ -314,8 +355,8 @@
                         onclick="this.paused ? this.play() : this.pause()"
                         aria-label="{{ $copy('site.video.title') }}"
                     >
-                        <source src="{{ asset('videos/free-overview.mp4') }}" type="video/mp4">
-                        {{ __('site.video.fallback') }}
+                        <source src="{{ $overviewVideoSrc }}" type="video/mp4">
+                        {{ $copy('site.video.fallback') }}
                     </video>
                 </div>
 
@@ -327,12 +368,12 @@
                     <button
                         type="button"
                         class="group flex w-full flex-col items-center justify-center gap-5 rounded-[18px] p-6 text-center focus:outline-none focus:ring-4 focus:ring-[#1E9447]/20"
-                        :aria-expanded="open.toString()"
+                        x-bind:aria-expanded="open.toString()"
                         aria-controls="special-support-content"
                         @click="open = !open"
                     >
                         <div class="text-center">
-                            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#16763A]">{{ __('site.video.gift_eyebrow') }}</p>
+                            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#16763A]">{{ $copy('site.video.gift_eyebrow') }}</p>
                             <h3 class="mt-3 text-2xl font-bold text-[#111111]">{{ $copy('site.video.gift_title') }}</h3>
                         </div>
                         <span
@@ -362,7 +403,7 @@
                         class="relative px-6 pb-6 pt-6 sm:pt-7"
                     >
                         <div class="relative z-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                            @foreach (__('site.video.gift_items') as $item)
+                            @foreach ($contentArray('site.video.gift_items') as $item)
                                 <div class="flex min-h-16 items-center justify-center rounded-lg border border-[#E5E5E5] bg-[#FBFCFA] px-4 text-center text-sm font-medium text-[#111111]">
                                     {{ $copy('site.video.gift_items.' . $loop->index) }}
                                 </div>
@@ -383,25 +424,37 @@
         <section id="how-it-works" class="scroll-mt-28 bg-white px-5 py-20 sm:px-8 lg:px-16">
             <div class="mx-auto w-full max-w-7xl">
                 <div class="mx-auto max-w-3xl text-center">
-                    <p class="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-brand">{{ __('site.sections.how.eyebrow') }}</p>
+                    <p class="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-brand">{{ $copy('site.sections.how.eyebrow') }}</p>
                     <h2 class="text-3xl font-bold leading-tight tracking-normal text-ink sm:text-4xl">{{ $copy('site.sections.how.title') }}</h2>
                     <p class="mt-5 text-lg leading-8 text-muted">{{ $copy('site.sections.how.body') }}</p>
                 </div>
                 <div class="mt-10 grid gap-5 md:grid-cols-3">
-                    @foreach (__('site.sections.how.steps') as $step)
+                    @foreach ($contentArray('site.sections.how.steps') as $step)
                         <div class="rounded-lg border border-line bg-white p-6 text-center shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl">
                             <h3 class="text-xl font-semibold text-ink">{{ $copy('site.sections.how.steps.' . $loop->index . '.title') }}</h3>
                             <p class="mt-3 leading-7 text-muted">{{ $copy('site.sections.how.steps.' . $loop->index . '.body') }}</p>
                         </div>
                     @endforeach
                 </div>
+                <div class="mx-auto mt-8 max-w-5xl rounded-2xl border border-brand/20 bg-[#EAF8EF] p-6 text-center shadow-[0_18px_50px_rgba(30,148,71,0.10)] sm:p-8">
+                    <p class="text-sm font-semibold uppercase tracking-[0.16em] text-brand">{{ $copy('site.sections.how.training.eyebrow') }}</p>
+                    <h3 class="mt-3 text-2xl font-semibold leading-snug text-ink sm:text-3xl">{{ $copy('site.sections.how.training.title') }}</h3>
+                    <p class="mx-auto mt-4 max-w-3xl text-base leading-8 text-muted sm:text-lg">{{ $copy('site.sections.how.training.body') }}</p>
+                    <div class="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        @foreach ($contentArray('site.sections.how.training.points') as $point)
+                            <div class="rounded-xl border border-brand/15 bg-white px-4 py-4 text-sm font-medium text-ink shadow-sm">
+                                {{ $copy('site.sections.how.training.points.' . $loop->index) }}
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
             </div>
         </section>
 
         <section id="success-stories" class="scroll-mt-28 overflow-hidden bg-[#EAF8EF] px-5 py-20 sm:px-8 lg:px-16 lg:py-24">
             @php
-                $storyTestimonials = __('site.sections.stories.testimonials');
-                $storyTrustNote = __('site.sections.stories.trust_note');
+                $storyTestimonials = $contentArray('site.sections.stories.testimonials');
+                $storyTrustNote = $copy('site.sections.stories.trust_note');
 
                 if (! is_array($storyTestimonials)) {
                     $storyTestimonials = trans('site.sections.stories.testimonials', [], 'en');
@@ -413,7 +466,7 @@
             @endphp
             <div class="mx-auto w-full max-w-7xl text-center">
                 <div class="mx-auto max-w-4xl reveal-up">
-                    <p class="mb-3 text-sm font-semibold uppercase tracking-[0.18em] text-brand">{{ __('site.sections.stories.eyebrow') }}</p>
+                    <p class="mb-3 text-sm font-semibold uppercase tracking-[0.18em] text-brand">{{ $copy('site.sections.stories.eyebrow') }}</p>
                     <h2 class="mx-auto max-w-5xl text-center text-3xl font-semibold leading-tight tracking-normal text-ink [text-wrap:balance] sm:text-4xl">{{ $copy('site.sections.stories.title') }}</h2>
                     <p class="mx-auto mt-5 max-w-3xl text-lg leading-8 text-muted">{{ $copy('site.sections.stories.body') }}</p>
                 </div>
@@ -431,7 +484,7 @@
                             </div>
                             <div class="relative mt-5 flex justify-center gap-1 text-[#E6C26A]" aria-label="{{ $testimonial['rating_label'] }}">
                                 @for ($i = 0; $i < 5; $i++)
-                                    <span aria-hidden="true">★</span>
+                                    <span aria-hidden="true">&#9733;</span>
                                 @endfor
                             </div>
                             <p class="relative mt-5 text-xl font-semibold leading-7 text-[#111111]">{{ $copy('site.sections.stories.testimonials.' . $testimonialIndex . '.headline') }}</p>
@@ -455,8 +508,8 @@
 
         <section id="wellness-lifestyle" class="section-clip-x scroll-mt-28 bg-[#FBFAF5] px-5 py-20 sm:px-8 lg:px-16 lg:py-24">
             @php
-                $wellnessCards = __('site.sections.wellness.cards');
-                $wellnessImageAlt = __('site.sections.wellness.image_alt');
+                $wellnessCards = $contentArray('site.sections.wellness.cards');
+                $wellnessImageAlt = $copy('site.sections.wellness.image_alt');
 
                 if (! is_array($wellnessCards)) {
                     $wellnessCards = trans('site.sections.wellness.cards', [], 'en');
@@ -468,7 +521,7 @@
             @endphp
             <div class="mx-auto w-full max-w-7xl">
                 <div class="reveal-up mx-auto max-w-7xl text-center">
-                    <p class="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-brand">{{ __('site.sections.wellness.eyebrow') }}</p>
+                    <p class="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-brand">{{ $copy('site.sections.wellness.eyebrow') }}</p>
                     <h2 class="mx-auto max-w-full text-center text-[clamp(1.9rem,2.35vw,2.35rem)] font-bold leading-tight tracking-normal text-ink [text-wrap:balance] xl:whitespace-nowrap">{{ $copy('site.sections.wellness.title') }}</h2>
                     <p class="mx-auto mt-5 max-w-4xl text-lg leading-8 text-muted">{{ $copy('site.sections.wellness.body') }}</p>
                 </div>
@@ -478,7 +531,7 @@
                         <div class="lg:sticky lg:top-28">
                             <div class="reveal-left overflow-hidden rounded-[24px] bg-brand-light shadow-2xl shadow-[#16763A]/10">
                                 <img
-                                    src="{{ asset(ltrim($siteImage('wellness_image', '/images/wellnesslifestyle.png'), '/')) }}"
+                                    src="{{ $wellnessImageSrc }}"
                                     alt="{{ $wellnessImageAlt }}"
                                     loading="lazy"
                                     decoding="async"
@@ -509,7 +562,7 @@
         <section id="business-opportunity" class="section-clip-x scroll-mt-28 bg-[#F8FAF8] px-5 py-16 sm:px-8 lg:px-16 lg:py-20">
             <div class="mx-auto w-full max-w-7xl">
                 <div class="reveal-up mx-auto max-w-4xl text-center">
-                    <p class="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-brand">{{ __('site.sections.business.eyebrow') }}</p>
+                    <p class="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-brand">{{ $copy('site.sections.business.eyebrow') }}</p>
                     <h2 class="reveal-up mx-auto max-w-4xl text-center text-3xl font-bold leading-tight tracking-normal text-ink [text-wrap:balance] sm:text-4xl" style="animation-delay: 0.3s">{{ $copy('site.sections.business.title') }}</h2>
                     <p class="reveal-up mx-auto mt-5 max-w-3xl text-lg leading-8 text-muted" style="animation-delay: 0.5s">{{ $copy('site.sections.business.body') }}</p>
                 </div>
@@ -517,14 +570,14 @@
                 <div class="mt-12 grid gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-stretch">
                     <div class="growth-graph reveal-left overflow-hidden rounded-[22px] border border-[#CDEED8] bg-white p-5 text-left shadow-xl shadow-[#16763A]/8 rtl:text-right">
                         <div class="flex items-center justify-between gap-4">
-                            <p class="text-sm font-semibold uppercase tracking-[0.14em] text-brand-dark">{{ __('site.sections.business.graph_label') }}</p>
-                            <span class="rounded-full bg-brand-light px-3 py-1 text-xs font-semibold text-brand">{{ __('site.sections.business.graph_badge') }}</span>
+                            <p class="text-sm font-semibold uppercase tracking-[0.14em] text-brand-dark">{{ $copy('site.sections.business.graph_label') }}</p>
+                            <span class="rounded-full bg-brand-light px-3 py-1 text-xs font-semibold text-brand">{{ $copy('site.sections.business.graph_badge') }}</span>
                         </div>
                         <p class="mt-3 max-w-xl text-xl font-semibold leading-snug text-ink sm:text-2xl">
                             {{ $copy('site.sections.business.graph_message') }}
                         </p>
                         <div class="relative mt-5 overflow-hidden rounded-[18px] bg-gradient-to-br from-white via-[#F7FCF8] to-[#EAF8EF] p-4">
-                            <svg class="h-64 w-full" viewBox="0 0 520 260" role="img" aria-label="{{ __('site.sections.business.graph_label') }}" preserveAspectRatio="none">
+                            <svg class="h-64 w-full" viewBox="0 0 520 260" role="img" aria-label="{{ $copy('site.sections.business.graph_label') }}" preserveAspectRatio="none">
                                 <defs>
                                     <linearGradient id="growthFill" x1="0" x2="0" y1="0" y2="1">
                                         <stop offset="0%" stop-color="#1E9447" stop-opacity="0.22"/>
@@ -556,16 +609,16 @@
                                 </g>
                             </svg>
                         </div>
-                        <p class="mt-4 text-center text-sm leading-6 text-muted">{{ __('site.sections.business.graph_note') }}</p>
+                        <p class="mt-4 text-center text-sm leading-6 text-muted">{{ $copy('site.sections.business.graph_note') }}</p>
                     </div>
 
                     <div class="reveal-right grid gap-4 sm:grid-cols-2 lg:gap-5">
-                        @foreach (__('site.sections.business.points') as $point)
+                        @foreach ($contentArray('site.sections.business.points') as $point)
                             <article
                                 class="group flex min-h-[118px] items-start gap-4 rounded-[18px] border border-line bg-white p-5 text-left shadow-md shadow-black/5 transition duration-300 hover:-translate-y-[5px] hover:border-[#B9E6C8] hover:bg-white hover:shadow-2xl hover:shadow-[#16763A]/10 rtl:text-right"
                                 style="animation-delay: {{ 0.2 + ($loop->index * 0.2) }}s"
                             >
-                                <span class="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-light text-base font-bold text-brand transition duration-300 group-hover:scale-110 group-hover:bg-brand group-hover:text-white">✓</span>
+                                <span class="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-light text-base font-bold text-brand transition duration-300 group-hover:scale-110 group-hover:bg-brand group-hover:text-white">&#10003;</span>
                                 <span class="text-base leading-7 text-muted">{{ $point }}</span>
                             </article>
                         @endforeach
@@ -577,7 +630,7 @@
         <section id="about-saleh" class="section-clip-x scroll-mt-28 bg-white px-5 py-20 sm:px-8 lg:px-16 lg:py-24">
             <div class="mx-auto w-full max-w-7xl">
                 <div class="mx-auto text-center">
-                    <p class="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-brand">{{ __('site.sections.about.eyebrow') }}</p>
+                    <p class="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-brand">{{ $copy('site.sections.about.eyebrow') }}</p>
                     <h2 class="mx-auto max-w-full text-center text-[clamp(1.25rem,2.35vw,2.35rem)] font-bold leading-tight tracking-normal text-ink [text-wrap:balance] lg:whitespace-nowrap">{{ $copy('site.sections.about.title') }}</h2>
                 </div>
 
@@ -585,8 +638,8 @@
                     <div class="reveal-left">
                         <div class="overflow-hidden rounded-[26px] border border-[#CDEED8] bg-brand-light p-3 shadow-2xl shadow-[#16763A]/10">
                             <img
-                                src="{{ asset(ltrim($siteImage('profile_image', '/images/profile.jpg'), '/')) }}"
-                                alt="{{ __('site.sections.about.image_alt') }}"
+                                src="{{ $profileImageSrc }}"
+                                alt="{{ $copy('site.sections.about.image_alt') }}"
                                 loading="lazy"
                                 decoding="async"
                                 class="aspect-[4/5] w-full rounded-[20px] object-cover object-center"
@@ -599,10 +652,10 @@
                         <p class="mt-5 text-lg leading-8 text-muted">{{ $copy('site.sections.about.body_extra') }}</p>
 
                         <div class="mt-8 grid gap-4 sm:grid-cols-2">
-                            @foreach (__('site.sections.about.highlights') as $highlight)
+                            @foreach ($contentArray('site.sections.about.highlights') as $highlight)
                                 <article class="rounded-[18px] border border-line bg-[#F8FAF8] p-5 text-center shadow-md shadow-black/5 transition duration-300 hover:-translate-y-1 hover:border-[#B9E6C8] hover:shadow-xl hover:shadow-[#16763A]/10">
                                     <div class="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-brand-light text-brand">
-                                        <span aria-hidden="true">✓</span>
+                                        <span aria-hidden="true">&#10003;</span>
                                     </div>
                                     <h3 class="mt-4 text-lg font-semibold text-ink">{{ $highlight['title'] }}</h3>
                                     <p class="mt-2 text-sm leading-6 text-muted">{{ $highlight['body'] }}</p>
@@ -618,11 +671,11 @@
             <div class="mx-auto w-full max-w-7xl">
                 <div class="mx-auto max-w-5xl text-center">
                     <div class="mb-10">
-                        <p class="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-brand">{{ __('site.sections.faq.eyebrow') }}</p>
+                        <p class="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-brand">{{ $copy('site.sections.faq.eyebrow') }}</p>
                         <h2 class="text-3xl font-bold leading-tight tracking-normal text-ink sm:text-4xl">{{ $copy('site.sections.faq.title') }}</h2>
                     </div>
                     <div x-data="{ open: null }" class="space-y-4">
-                        @foreach (__('site.sections.faq.items') as $item)
+                        @foreach ($contentArray('site.sections.faq.items') as $item)
                             @php
                                 $answers = $item['answers'] ?? (isset($item['a']) ? [$item['a']] : []);
                                 $panelId = 'faq-panel-'.$loop->index;
@@ -631,7 +684,7 @@
                                 <button
                                     type="button"
                                     class="flex w-full items-center justify-between gap-5 px-6 py-5 text-left text-lg font-semibold text-ink transition hover:text-brand focus:outline-none focus:ring-4 focus:ring-brand/10 rtl:text-right sm:px-7"
-                                    :aria-expanded="open === {{ $loop->index }} ? 'true' : 'false'"
+                                    x-bind:aria-expanded="open === {{ $loop->index }} ? 'true' : 'false'"
                                     aria-controls="{{ $panelId }}"
                                     @click="open = open === {{ $loop->index }} ? null : {{ $loop->index }}"
                                 >
@@ -659,7 +712,7 @@
                                             </ul>
                                         </div>
                                     </div>
-                                </div>
+                                </template>
                             </div>
                         @endforeach
                     </div>
@@ -693,7 +746,7 @@
 
             <div class="mx-auto w-full max-w-7xl text-center">
                 <div class="mx-auto max-w-4xl">
-                    <p class="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-brand">{{ __('site.form.qualifier.eyebrow') }}</p>
+                    <p class="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-brand">{{ $copy('site.form.qualifier.eyebrow') }}</p>
                     <h2 class="text-4xl font-semibold leading-tight tracking-normal text-ink sm:text-5xl">{{ $copy('site.form.qualifier.title') }}</h2>
                     <p class="mt-5 text-lg leading-8 text-muted">{{ $copy('site.form.qualifier.body') }}</p>
                 </div>
@@ -926,11 +979,11 @@
                     @endif
 
                     @if ($errors->any())
-                        <div class="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">{{ __('site.form.errors') }}</div>
+                        <div class="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">{{ $copy('site.form.errors') }}</div>
                     @endif
 
                     <div x-cloak x-show="submitted" x-transition class="rounded-2xl border border-brand/20 bg-brand-light p-6 text-center">
-                        <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-brand text-2xl font-bold text-white">✓</div>
+                        <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-brand text-2xl font-bold text-white">&#10003;</div>
                         <h3 class="mt-4 text-2xl font-semibold text-ink">Successfully sent</h3>
                         <p class="mt-2 text-sm leading-6 text-muted">Thank you. Your details were received, and the team will follow up with you privately.</p>
                     </div>
@@ -939,7 +992,7 @@
 
                     <div x-show="!submitted">
                     <div class="mb-8 flex items-center justify-between gap-4 text-sm text-muted">
-                        <button type="button" x-show="step > 1" @click="goBack()" class="font-semibold text-brand transition hover:text-brand-dark">{{ __('site.form.qualifier.back') }}</button>
+                        <button type="button" x-show="step > 1" @click="goBack()" class="font-semibold text-brand transition hover:text-brand-dark">{{ $copy('site.form.qualifier.back') }}</button>
                         <span x-show="step === 1">Step 1 of 5</span>
                         <span x-show="step === 2">Step 2 of 5</span>
                         <span x-show="step === 3">Step 3 of 5</span>
@@ -947,7 +1000,7 @@
                         <span x-show="step === 5">Step 5 of 5</span>
                         <span x-text="`${progressPercent}%`"></span>
                     </div>
-                    <div class="mb-8 h-2 overflow-hidden rounded-full bg-[#EDF1EC]" role="progressbar" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="progressPercent">
+                    <div class="mb-8 h-2 overflow-hidden rounded-full bg-[#EDF1EC]" role="progressbar" aria-label="{{ $copy('site.form.qualifier.step') }}" aria-valuemin="0" aria-valuemax="100" x-bind:aria-valuenow="progressPercent">
                         <div class="h-full rounded-full bg-[#1E9447] shadow-[0_2px_8px_rgba(30,148,71,0.24)] transition-all duration-700 ease-out" :style="`width: ${progressPercent}%`"></div>
                     </div>
 
@@ -990,8 +1043,8 @@
                     </div>
 
                     <div x-show="step === 4" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-3" x-transition:enter-end="opacity-100 translate-y-0">
-                        <h3 class="text-2xl font-semibold text-ink">When would you like guidance?</h3>
-                        <p class="mt-2 text-muted">Choose the timing that feels comfortable for you.</p>
+                        <h3 class="text-2xl font-semibold text-ink">{{ $copy('site.form.qualifier.time_question') }}</h3>
+                        <p class="mt-2 text-muted">{{ $copy('site.form.qualifier.time_hint') }}</p>
                         <div class="mt-6 grid gap-4">
                             <template x-for="option in timeOptions" :key="option.value">
                                 <button type="button" @click="chooseTime(option)" class="group rounded-2xl border border-line bg-[#FFFDF8] p-5 text-left transition duration-300 hover:-translate-y-1 hover:border-brand/40 hover:bg-brand-light hover:shadow-xl hover:shadow-brand/10 rtl:text-right">
@@ -1003,8 +1056,8 @@
                     </div>
 
                     <div x-show="step === 5" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-3" x-transition:enter-end="opacity-100 translate-y-0">
-                        <h3 class="text-2xl font-semibold text-ink">Share your details</h3>
-                        <p class="mt-2 text-muted">The team will follow up privately with the right next step.</p>
+                        <h3 class="text-2xl font-semibold text-ink">{{ $copy('site.form.qualifier.details_title') }}</h3>
+                        <p class="mt-2 text-muted">{{ $copy('site.form.qualifier.details_body') }}</p>
 
                         <input type="hidden" name="interest" :value="selectedCategory ? selectedCategory.title : @js(old('interest'))">
                         <input type="hidden" name="lead_category" :value="selectedCategory ? selectedCategory.title : @js(old('lead_category'))">
@@ -1015,19 +1068,19 @@
                         <input type="hidden" name="country" :value="countryParts.name">
                         <input type="hidden" name="phone" :value="phoneLocal ? `${countryParts.dial} ${phoneLocal}` : ''">
 
-                        <label for="name" class="mt-6 block text-sm font-semibold text-ink">{{ __('site.form.fields.name') }}</label>
-                        <input id="name" x-ref="nameInput" name="name" value="{{ old('name') }}" required placeholder="{{ __('site.form.placeholders.name') }}" class="mt-2 min-h-12 w-full rounded-lg border border-line px-4 text-base outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10">
+                        <label for="name" class="mt-6 block text-sm font-semibold text-ink">{{ $copy('site.form.fields.name') }}</label>
+                        <input id="name" x-ref="nameInput" name="name" value="{{ old('name') }}" required placeholder="{{ $copy('site.form.placeholders.name') }}" class="mt-2 min-h-12 w-full rounded-lg border border-line px-4 text-base outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10">
 
-                        <label for="email" class="mt-5 block text-sm font-semibold text-ink">{{ __('site.form.fields.email') }}</label>
-                        <input id="email" type="email" name="email" value="{{ old('email') }}" required placeholder="{{ __('site.form.placeholders.email') }}" class="mt-2 min-h-12 w-full rounded-lg border border-line px-4 text-base outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10">
+                        <label for="email" class="mt-5 block text-sm font-semibold text-ink">{{ $copy('site.form.fields.email') }}</label>
+                        <input id="email" type="email" name="email" value="{{ old('email') }}" required placeholder="{{ $copy('site.form.placeholders.email') }}" class="mt-2 min-h-12 w-full rounded-lg border border-line px-4 text-base outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10">
 
-                        <label for="occupation" class="mt-5 block text-sm font-semibold text-ink">Occupation</label>
-                        <input id="occupation" name="occupation" value="{{ old('occupation') }}" required placeholder="Your current occupation" class="mt-2 min-h-12 w-full rounded-lg border border-line px-4 text-base outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10">
+                        <label for="occupation" class="mt-5 block text-sm font-semibold text-ink">{{ $copy('site.form.fields.occupation') }}</label>
+                        <input id="occupation" name="occupation" value="{{ old('occupation') }}" required placeholder="{{ $copy('site.form.placeholders.occupation') }}" class="mt-2 min-h-12 w-full rounded-lg border border-line px-4 text-base outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10">
 
-                        <label for="phone_local" class="mt-5 block text-sm font-semibold text-ink">{{ __('site.form.fields.phone') }}</label>
+                        <label for="phone_local" class="mt-5 block text-sm font-semibold text-ink">{{ $copy('site.form.fields.phone') }}</label>
                         <div class="mt-2 grid gap-3 sm:grid-cols-[0.95fr_1fr]">
                             <div class="relative" @click.outside="countryOpen = false">
-                                <button type="button" @click="countryOpen = ! countryOpen" class="flex min-h-12 w-full items-center justify-between gap-3 rounded-lg border border-line bg-white px-3 text-left text-sm outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10 rtl:text-right">
+                                <button type="button" @click="countryOpen = ! countryOpen" x-bind:aria-expanded="countryOpen" aria-controls="country-selector-options" class="flex min-h-12 w-full items-center justify-between gap-3 rounded-lg border border-line bg-white px-3 text-left text-sm outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10 rtl:text-right">
                                     <span class="flex min-w-0 items-center gap-2">
                                         <img :src="flagUrl(countryParts.iso)" :alt="`${countryParts.name} flag`" class="h-4 w-6 shrink-0 rounded-[2px] object-cover shadow-sm">
                                         <span class="truncate" x-text="`${countryParts.name} ${countryParts.dial}`"></span>
@@ -1036,9 +1089,10 @@
                                         <path d="m6 9 6 6 6-6"/>
                                     </svg>
                                 </button>
-                                <div x-cloak x-show="countryOpen" x-transition class="absolute left-0 right-0 z-30 mt-2 overflow-hidden rounded-2xl border border-line bg-white shadow-2xl shadow-black/10">
+                                <template x-if="countryOpen">
+                                    <div id="country-selector-options" x-cloak x-show="countryOpen" x-transition class="absolute left-0 right-0 z-30 mt-2 overflow-hidden rounded-2xl border border-line bg-white shadow-2xl shadow-black/10">
                                     <div class="p-3">
-                                        <input x-model="countrySearch" type="search" placeholder="{{ __('site.form.qualifier.country_search') }}" class="min-h-11 w-full rounded-lg border border-line px-3 text-sm outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10">
+                                        <input x-model="countrySearch" type="search" placeholder="{{ $copy('site.form.qualifier.country_search') }}" class="min-h-11 w-full rounded-lg border border-line px-3 text-sm outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10">
                                     </div>
                                     <div class="max-h-64 overflow-y-auto pb-2">
                                         @foreach ($countryDialOptions as $country)
@@ -1058,22 +1112,23 @@
                                             </button>
                                         @endforeach
                                     </div>
-                                </div>
+                                    </div>
+                                </template>
                             </div>
-                            <input id="phone_local" x-model="phoneLocal" required inputmode="tel" autocomplete="tel" placeholder="{{ __('site.form.placeholders.phone') }}" class="min-h-12 rounded-lg border border-line px-4 text-base outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10">
+                            <input id="phone_local" x-model="phoneLocal" required inputmode="tel" autocomplete="tel" placeholder="{{ $copy('site.form.placeholders.phone') }}" class="min-h-12 rounded-lg border border-line px-4 text-base outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10">
                         </div>
-                        <p class="mt-2 text-xs leading-5 text-muted">{{ __('site.form.qualifier.phone_hint') }}</p>
+                        <p class="mt-2 text-xs leading-5 text-muted">{{ $copy('site.form.qualifier.phone_hint') }}</p>
 
                         <label class="mt-5 flex gap-3 text-sm leading-6 text-muted {{ $isRtl ? 'flex-row-reverse text-right' : '' }}">
                             <input type="checkbox" name="consent" value="1" required class="mt-1 h-5 w-5 shrink-0 rounded border-line text-brand focus:ring-brand">
-                            <span>{{ __('site.form.consent') }}</span>
+                            <span>{{ $copy('site.form.consent') }}</span>
                         </label>
 
                         <button class="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[#1E9447] px-7 text-base font-bold text-white shadow-lg shadow-[#1E9447]/25 transition duration-300 hover:scale-[1.02] hover:bg-[#16763A] hover:shadow-xl hover:shadow-[#1E9447]/30 focus:outline-none focus:ring-4 focus:ring-[#1E9447]/25 disabled:cursor-not-allowed disabled:opacity-70" type="submit" :disabled="submitting">
-                            <span x-show="!submitting">{{ __('site.form.submit') }}</span>
-                            <span x-show="submitting">Sending...</span>
+                            <span x-show="!submitting">{{ $copy('site.form.submit') }}</span>
+                            <span x-show="submitting">{{ $copy('site.form.qualifier.sending') }}</span>
                         </button>
-                        <p class="mt-4 text-center text-xs leading-5 text-muted">{{ __('site.form.qualifier.privacy') }}</p>
+                        <p class="mt-4 text-center text-xs leading-5 text-muted">{{ $copy('site.form.qualifier.privacy') }}</p>
                     </div>
                     </div>
                 </form>
@@ -1113,7 +1168,7 @@
                             </span>
                         </a>
                     </div>
-                    <p class="mt-5 max-w-xl text-base leading-8 text-white/70">{{ $copy('site.footer.description') }}</p>
+                    <p class="mt-5 max-w-xl text-base leading-8 text-white/80">{{ $copy('site.footer.description') }}</p>
 
                     <div class="mt-6 flex flex-wrap gap-3">
                         @foreach ($footerSocials as $social)
@@ -1146,8 +1201,8 @@
                 </div>
 
                 <div>
-                    <h3 class="text-sm font-semibold uppercase tracking-[0.16em] text-brand-light">{{ __('site.footer.quick_title') }}</h3>
-                    <nav class="mt-5 grid gap-3 text-sm text-white/70" aria-label="{{ __('site.footer.quick_title') }}">
+                    <h3 class="text-sm font-semibold uppercase tracking-[0.16em] text-[#B9E6C8]">{{ $copy('site.footer.quick_title') }}</h3>
+                    <nav class="mt-5 grid gap-3 text-sm text-white/80" aria-label="{{ $copy('site.footer.quick_title') }}">
                         @foreach ($footerLinks as $link)
                             <a class="transition hover:translate-x-1 hover:text-white rtl:hover:-translate-x-1" href="/{{ $locale }}/{{ $link['slug'] }}">{{ $link['label'] }}</a>
                         @endforeach
@@ -1156,17 +1211,17 @@
 
                 <div class="rounded-[22px] border border-white/10 bg-white/[0.06] p-6 shadow-2xl shadow-black/20">
                     <h3 class="text-xl font-semibold text-white">{{ $copy('site.footer.cta_title') }}</h3>
-                    <p class="mt-3 text-sm leading-7 text-white/70">{{ $copy('site.footer.cta_body') }}</p>
+                    <p class="mt-3 text-sm leading-7 text-white/80">{{ $copy('site.footer.cta_body') }}</p>
                     <a href="https://wa.me/971555574958" target="_blank" rel="noopener noreferrer" class="mt-6 inline-flex min-h-12 items-center justify-center rounded-full bg-[#1E9447] px-6 text-sm font-semibold text-white shadow-lg shadow-[#1E9447]/25 transition duration-300 hover:scale-[1.03] hover:bg-[#16763A] hover:shadow-xl hover:shadow-[#1E9447]/30">
-                        {{ __('site.footer.cta_button') }}
+                        {{ $copy('site.footer.cta_button') }}
                     </a>
                 </div>
             </div>
 
             <div class="mt-12 border-t border-white/10 pt-6">
-                <div class="flex flex-col items-center justify-between gap-4 text-center text-sm text-white/55 lg:flex-row lg:text-left rtl:lg:text-right">
-                    <p>{{ __('site.footer.copy', ['year' => date('Y')]) }}</p>
-                    <p class="max-w-3xl">{{ __('site.footer.note') }}</p>
+                <div class="flex flex-col items-center justify-between gap-4 text-center text-sm text-white/75 lg:flex-row lg:text-left rtl:lg:text-right">
+                    <p>{{ strtr($copy('site.footer.copy'), [':year' => date('Y'), '{year}' => date('Y')]) }}</p>
+                    <p class="max-w-3xl">{{ $copy('site.footer.note') }}</p>
                 </div>
             </div>
         </div>
@@ -1185,3 +1240,12 @@
     </a>
 </body>
 </html>
+
+
+
+
+
+
+
+
+

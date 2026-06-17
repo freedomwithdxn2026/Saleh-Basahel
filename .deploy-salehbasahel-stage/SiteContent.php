@@ -16,55 +16,44 @@ class SiteContent
     public function text(string $locale, string $key): string
     {
         $fallback = __($key, [], $locale);
+
+        if (! self::$databaseUnavailable) {
+            try {
+                return Cache::rememberForever("site_content.{$locale}.{$key}", function () use ($locale, $key, $fallback) {
+                    $value = SiteContentOverride::query()
+                        ->where('locale', $locale)
+                        ->where('key', $key)
+                        ->value('value');
+
+                    return filled($value) ? (string) $value : (string) $fallback;
+                });
+            } catch (\Throwable) {
+                self::$databaseUnavailable = true;
+            }
+        }
+
         $fileValue = data_get(self::fileContent(), "{$locale}.{$key}");
 
-        if (filled($fileValue)) {
-            return (string) $fileValue;
-        }
-
-        if (self::$databaseUnavailable) {
-            return (string) $fallback;
-        }
-
-        try {
-            return Cache::rememberForever("site_content.{$locale}.{$key}", function () use ($locale, $key, $fallback) {
-                $value = SiteContentOverride::query()
-                    ->where('locale', $locale)
-                    ->where('key', $key)
-                    ->value('value');
-
-                return filled($value) ? (string) $value : (string) $fallback;
-            });
-        } catch (\Throwable) {
-            self::$databaseUnavailable = true;
-
-            return (string) $fallback;
-        }
+        return filled($fileValue) ? (string) $fileValue : (string) $fallback;
     }
 
     public function image(string $key, string $fallback): string
     {
+        if (! self::$databaseUnavailable) {
+            try {
+                return Cache::rememberForever("site_image.{$key}", function () use ($key, $fallback) {
+                    $path = SiteImageOverride::query()->where('key', $key)->value('path');
+
+                    return filled($path) && self::publicAssetExists((string) $path) ? (string) $path : $fallback;
+                });
+            } catch (\Throwable) {
+                self::$databaseUnavailable = true;
+            }
+        }
+
         $fileValue = data_get(self::fileImages(), $key);
 
-        if (filled($fileValue) && self::publicAssetExists((string) $fileValue)) {
-            return (string) $fileValue;
-        }
-
-        if (self::$databaseUnavailable) {
-            return $fallback;
-        }
-
-        try {
-            return Cache::rememberForever("site_image.{$key}", function () use ($key, $fallback) {
-                $path = SiteImageOverride::query()->where('key', $key)->value('path');
-
-                return filled($path) && self::publicAssetExists((string) $path) ? (string) $path : $fallback;
-            });
-        } catch (\Throwable) {
-            self::$databaseUnavailable = true;
-
-            return $fallback;
-        }
+        return filled($fileValue) && self::publicAssetExists((string) $fileValue) ? (string) $fileValue : $fallback;
     }
 
     public static function clear(): void

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace App\Http\Controllers\Admin;
 
@@ -7,6 +7,7 @@ use App\Models\SiteContentOverride;
 use App\Support\SiteContent;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Throwable;
 
@@ -23,7 +24,7 @@ class ContentController extends Controller
                 ->where('locale', $locale)
                 ->pluck('value', 'key');
 
-            $values = $databaseValues->merge($values);
+            $values = $values->merge($databaseValues);
         } catch (Throwable) {
             // File-backed editing remains available when the local database is offline.
         }
@@ -80,34 +81,137 @@ class ContentController extends Controller
 
     private function fields(): array
     {
-        return [
-            ['group' => 'SEO', 'key' => 'site.meta.title', 'label' => 'Meta title', 'type' => 'text'],
-            ['group' => 'SEO', 'key' => 'site.meta.description', 'label' => 'Meta description', 'type' => 'textarea'],
-            ['group' => 'Hero', 'key' => 'site.hero.trust_badge', 'label' => 'Hero badge', 'type' => 'text'],
-            ['group' => 'Hero', 'key' => 'site.hero.title', 'label' => 'Hero headline', 'type' => 'textarea'],
-            ['group' => 'Hero', 'key' => 'site.hero.subtitle', 'label' => 'Hero description', 'type' => 'textarea'],
-            ['group' => 'Hero', 'key' => 'site.cta.overview', 'label' => 'Hero CTA button', 'type' => 'text'],
-            ['group' => 'Hero', 'key' => 'site.hero.fine_print', 'label' => 'Hero image note', 'type' => 'text'],
-            ['group' => 'Video', 'key' => 'site.video.title', 'label' => 'Video title', 'type' => 'textarea'],
-            ['group' => 'Video', 'key' => 'site.video.description', 'label' => 'Video description', 'type' => 'textarea'],
-            ['group' => 'How It Works', 'key' => 'site.sections.how.title', 'label' => 'How title', 'type' => 'textarea'],
-            ['group' => 'How It Works', 'key' => 'site.sections.how.body', 'label' => 'How description', 'type' => 'textarea'],
-            ['group' => 'Success Stories', 'key' => 'site.sections.stories.title', 'label' => 'Stories title', 'type' => 'textarea'],
-            ['group' => 'Success Stories', 'key' => 'site.sections.stories.body', 'label' => 'Stories description', 'type' => 'textarea'],
-            ['group' => 'Wellness', 'key' => 'site.sections.wellness.title', 'label' => 'Wellness title', 'type' => 'textarea'],
-            ['group' => 'Wellness', 'key' => 'site.sections.wellness.body', 'label' => 'Wellness description', 'type' => 'textarea'],
-            ['group' => 'Business', 'key' => 'site.sections.business.title', 'label' => 'Business title', 'type' => 'textarea'],
-            ['group' => 'Business', 'key' => 'site.sections.business.body', 'label' => 'Business description', 'type' => 'textarea'],
-            ['group' => 'Business', 'key' => 'site.sections.business.graph_message', 'label' => 'Graph message', 'type' => 'textarea'],
-            ['group' => 'About', 'key' => 'site.sections.about.title', 'label' => 'About title', 'type' => 'textarea'],
-            ['group' => 'About', 'key' => 'site.sections.about.body', 'label' => 'About body', 'type' => 'textarea'],
-            ['group' => 'About', 'key' => 'site.sections.about.body_extra', 'label' => 'About extra body', 'type' => 'textarea'],
-            ['group' => 'FAQ', 'key' => 'site.sections.faq.title', 'label' => 'FAQ title', 'type' => 'text'],
-            ['group' => 'Form', 'key' => 'site.form.qualifier.title', 'label' => 'Form title', 'type' => 'text'],
-            ['group' => 'Form', 'key' => 'site.form.qualifier.body', 'label' => 'Form description', 'type' => 'textarea'],
-            ['group' => 'Footer', 'key' => 'site.footer.description', 'label' => 'Footer description', 'type' => 'textarea'],
-            ['group' => 'Footer', 'key' => 'site.footer.cta_title', 'label' => 'Footer CTA title', 'type' => 'text'],
-            ['group' => 'Footer', 'key' => 'site.footer.cta_body', 'label' => 'Footer CTA body', 'type' => 'textarea'],
+        $content = $this->baseContent();
+        $flattened = $this->flatten($content, 'site');
+        $fields = [];
+
+        foreach ($flattened as $key => $value) {
+            if (! $this->isEditableKey($key) || is_array($value)) {
+                continue;
+            }
+
+            $fields[] = [
+                'group' => $this->groupFor($key),
+                'key' => $key,
+                'label' => $this->labelFor($key),
+                'type' => $this->typeFor($key),
+            ];
+        }
+
+        return $fields;
+    }
+
+    private function baseContent(): array
+    {
+        $candidates = [
+            function_exists('lang_path') ? lang_path('en/site.php') : base_path('lang/en/site.php'),
+            base_path('lang/en/site.php'),
+            resource_path('lang/en/site.php'),
         ];
+
+        foreach (array_unique($candidates) as $path) {
+            if (is_string($path) && is_file($path)) {
+                $content = require $path;
+
+                return is_array($content) ? $content : [];
+            }
+        }
+
+        return [];
+    }
+    private function flatten(array $items, string $prefix): array
+    {
+        $flat = [];
+
+        foreach ($items as $key => $value) {
+            $path = $prefix . '.' . $key;
+
+            if (is_array($value)) {
+                $flat += $this->flatten($value, $path);
+                continue;
+            }
+
+            $flat[$path] = $value;
+        }
+
+        return $flat;
+    }
+
+    private function isEditableKey(string $key): bool
+    {
+        $allowedPrefixes = [
+            'site.meta.',
+            'site.hero.',
+            'site.cta.',
+            'site.video.',
+            'site.sections.',
+            'site.form.',
+            'site.footer.',
+        ];
+
+        if (! Str::startsWith($key, $allowedPrefixes)) {
+            return false;
+        }
+
+        $blockedFragments = [
+            'site.form.countries.',
+            '.slug',
+            '.url',
+            '.icon',
+            '.href',
+        ];
+
+        return ! Str::contains($key, $blockedFragments);
+    }
+
+    private function groupFor(string $key): string
+    {
+        return match (true) {
+            Str::startsWith($key, 'site.meta.') => 'SEO',
+            Str::startsWith($key, 'site.hero.') || Str::startsWith($key, 'site.cta.') => 'Hero',
+            Str::startsWith($key, 'site.video.') => 'Video',
+            Str::startsWith($key, 'site.sections.how.') => 'How It Works',
+            Str::startsWith($key, 'site.sections.stories.') => 'Success Stories',
+            Str::startsWith($key, 'site.sections.wellness.') => 'Wellness Lifestyle',
+            Str::startsWith($key, 'site.sections.business.') => 'Business Opportunity',
+            Str::startsWith($key, 'site.sections.about.') => 'About Saleh',
+            Str::startsWith($key, 'site.sections.faq.') => 'FAQ',
+            Str::startsWith($key, 'site.form.') => 'Lead Form',
+            Str::startsWith($key, 'site.footer.') => 'Footer',
+            default => 'Content',
+        };
+    }
+
+    private function labelFor(string $key): string
+    {
+        $label = Str::of($key)
+            ->replaceFirst('site.', '')
+            ->replace(['sections.', 'qualifier.', 'fields.', 'placeholders.'], '')
+            ->replaceMatches('/\.(\d+)\./', ' item $1 ')
+            ->replace(['.', '_'], ' ')
+            ->squish();
+
+        return (string) Str::of($label)->headline();
+    }
+
+    private function typeFor(string $key): string
+    {
+        $textareaHints = [
+            'body',
+            'description',
+            'subtitle',
+            'note',
+            'extra',
+            'message',
+            'fallback',
+            'answer',
+            'consent',
+            'privacy',
+            'copy',
+        ];
+
+        return Str::contains($key, $textareaHints) ? 'textarea' : 'text';
     }
 }
+
+

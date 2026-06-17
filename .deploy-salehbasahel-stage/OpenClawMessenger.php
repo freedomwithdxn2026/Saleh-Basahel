@@ -20,8 +20,7 @@ class OpenClawMessenger
         ?Lead $lead = null,
         string $category = 'message',
         ?string $externalKey = null,
-    ): bool
-    {
+    ): bool {
         $communication = $this->beginLog($lead, $target, $message, $category, $externalKey);
 
         if (! config('services.openclaw.messaging_enabled', false) || PHP_OS_FAMILY === 'Windows') {
@@ -41,48 +40,55 @@ class OpenClawMessenger
 
         $sender = config('services.openclaw.sender', '/usr/local/bin/saleh-openclaw-send');
         $user = config('services.openclaw.user', 'openclaw');
+        $timeout = (int) config('services.openclaw.timeout', 45);
+        $maxAttempts = max(1, (int) config('services.openclaw.max_attempts', 2));
+        $lastError = 'OpenClaw WhatsApp send failed.';
 
-        try {
-            $process = new Process([
-                'sudo',
-                '-n',
-                '-u',
-                $user,
-                $sender,
-                $target,
-                $message,
-            ]);
-            $process->setTimeout(45);
-            $process->run();
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            try {
+                $process = new Process(['sudo', '-n', '-u', $user, $sender, $target, $message]);
+                $process->setTimeout(max(10, $timeout));
+                $process->run();
 
-            if (! $process->isSuccessful()) {
-                Log::warning('OpenClaw WhatsApp send failed.', [
+                if ($process->isSuccessful()) {
+                    $this->sentLog($communication, [
+                        'attempts' => $attempt,
+                        'provider_output' => str(trim($process->getOutput()))->limit(1000)->toString(),
+                    ]);
+
+                    return true;
+                }
+
+                $lastError = trim($process->getErrorOutput()) ?: trim($process->getOutput()) ?: $lastError;
+                Log::warning('OpenClaw WhatsApp send attempt failed.', [
                     'target' => $target,
-                    'error' => trim($process->getErrorOutput()),
+                    'attempt' => $attempt,
+                    'max_attempts' => $maxAttempts,
+                    'error' => $lastError,
                 ]);
-                $this->failLog($communication, trim($process->getErrorOutput()) ?: 'OpenClaw WhatsApp send failed.');
-            } else {
-                $this->sentLog($communication, [
-                    'provider_output' => str(trim($process->getOutput()))->limit(1000)->toString(),
+            } catch (Throwable $exception) {
+                $lastError = $exception->getMessage();
+                Log::warning('OpenClaw WhatsApp send exception.', [
+                    'target' => $target,
+                    'attempt' => $attempt,
+                    'max_attempts' => $maxAttempts,
+                    'error' => $lastError,
                 ]);
             }
 
-            return $process->isSuccessful();
-        } catch (Throwable $exception) {
-            Log::warning('OpenClaw WhatsApp send exception.', [
-                'target' => $target,
-                'error' => $exception->getMessage(),
-            ]);
-            $this->failLog($communication, $exception->getMessage());
-
-            return false;
+            if ($attempt < $maxAttempts) {
+                usleep(500000);
+            }
         }
+
+        $this->failLog($communication, $lastError);
+
+        return false;
     }
 
     private function normalizeTarget(string $target): ?string
     {
-        $target = trim($target);
-        $digits = preg_replace('/\D+/', '', $target);
+        $digits = preg_replace('/\D+/', '', trim($target));
 
         if (! $digits || strlen($digits) < 8 || strlen($digits) > 15) {
             return null;
@@ -91,22 +97,10 @@ class OpenClawMessenger
         return '+'.$digits;
     }
 
-    private function beginLog(
-        ?Lead $lead,
-        string $target,
-        string $message,
-        string $category,
-        ?string $externalKey,
-    ): ?LeadCommunication {
+    private function beginLog(?Lead $lead, string $target, string $message, string $category, ?string $externalKey): ?LeadCommunication
+    {
         return $lead?->exists
-            ? $this->communications->beginOutbound(
-                $lead,
-                'whatsapp',
-                $category,
-                $message,
-                $target,
-                externalKey: $externalKey,
-            )
+            ? $this->communications->beginOutbound($lead, 'whatsapp', $category, $message, $target, externalKey: $externalKey)
             : null;
     }
 
@@ -124,3 +118,4 @@ class OpenClawMessenger
         }
     }
 }
+
